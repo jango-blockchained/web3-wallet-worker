@@ -51,7 +51,4 @@
   ],
   // Required for trackAnalytics to authenticate with analytics-worker.
   // Set via: wrangler secret put INTERNAL_KEY_BINDING
-  "secrets": [
-    "INTERNAL_KEY_BINDING"
-  ]
 }
