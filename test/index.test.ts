@@ -308,6 +308,181 @@ describe("Web3 Wallet Worker with Secrets Store", () => {
     expect(json.security.maxTransactionValueUsd).toBe(10000);
     expect(json.updatedAt).toBeGreaterThan(0);
   });
+
+  // ── GET /health ──
+
+  it("GET /health returns ok without auth", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/health", { method: "GET" });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(200);
+    const json: any = await res.json();
+    expect(json.result?.service || json.service || json.worker).toBeDefined();
+  });
+
+  // ── PUT /config validation ──
+
+  it("PUT /config returns 400 for invalid JSON body", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/config", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Auth-Key": "test-internal-key",
+      },
+      body: "not-json",
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(400);
+  });
+
+  it("PUT /config deep-merges security without clobbering siblings", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/config", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Auth-Key": "test-internal-key",
+      },
+      body: JSON.stringify({
+        security: { whitelistedContractsOnly: true },
+      }),
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(200);
+    const json: any = await res.json();
+    expect(json.config.security.whitelistedContractsOnly).toBe(true);
+    // maxTransactionValueUsd should still be present from defaults
+    expect(json.config.security.maxTransactionValueUsd).toBeDefined();
+  });
+
+  // ── GET /balance validation ──
+
+  it("GET /balance requires chain param", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/balance", {
+      headers: { "X-Internal-Auth-Key": "test-internal-key" },
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /balance rejects unsupported chain", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/balance?chain=notachain", {
+      headers: { "X-Internal-Auth-Key": "test-internal-key" },
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(400);
+  });
+
+  // ── GET /quote validation ──
+
+  it("GET /quote requires all params", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/quote?chain=ethereum", {
+      headers: { "X-Internal-Auth-Key": "test-internal-key" },
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(400);
+    const json: any = await res.json();
+    expect(String(json.error)).toMatch(/Missing required params/i);
+  });
+
+  it("GET /quote rejects invalid token addresses", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request(
+      "http://localhost/quote?chain=ethereum&tokenIn=bad&tokenOut=also-bad&amountIn=1",
+      { headers: { "X-Internal-Auth-Key": "test-internal-key" } }
+    );
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(400);
+  });
+
+  // ── POST /swap validation ──
+
+  it("POST /swap rejects missing fields", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/swap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Auth-Key": "test-internal-key",
+      },
+      body: JSON.stringify({ chain: "ethereum" }),
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(400);
+  });
+
+  it("POST /swap rejects invalid token addresses", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/swap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Auth-Key": "test-internal-key",
+      },
+      body: JSON.stringify({
+        chain: "ethereum",
+        tokenIn: "0xbad",
+        tokenOut: "0xbad",
+        amountIn: "1",
+      }),
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(400);
+  });
+
+  // ── POST /transfer more edges ──
+
+  it("POST /transfer rejects invalid recipient address", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/transfer", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Auth-Key": "test-internal-key",
+      },
+      body: JSON.stringify({
+        chain: "ethereum",
+        tokenAddress: "0x0000000000000000000000000000000000000000",
+        to: "not-an-address",
+        amount: "1",
+      }),
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(400);
+  });
+
+  it("POST /transfer rejects zero amount", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/transfer", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Auth-Key": "test-internal-key",
+      },
+      body: JSON.stringify({
+        chain: "ethereum",
+        tokenAddress: "0x0000000000000000000000000000000000000000",
+        to: EXPECTED_ADDRESS_FROM_PK,
+        amount: "0",
+      }),
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 for unknown routes", async () => {
+    const env = createMockEnv({ pk: TEST_PRIVATE_KEY });
+    const req = new Request("http://localhost/nope", {
+      headers: { "X-Internal-Auth-Key": "test-internal-key" },
+    });
+    const res = await worker.fetch(req, env, mockCtx);
+    expect(res.status).toBe(404);
+  });
+
 });
 
 // Restore original Response and Headers after all tests in this file
