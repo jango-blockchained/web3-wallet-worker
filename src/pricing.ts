@@ -137,8 +137,11 @@ async function quoteTokenToStableUsd(
     }
     // Cross-stable hop: token → USDC → USDT (or reverse) for thin pairs
     if (stables.length >= 2) {
-      const a = ethers.getAddress(stables[0]);
-      const b = ethers.getAddress(stables[1]);
+      const stableA = stables[0];
+      const stableB = stables[1];
+      if (!stableA || !stableB) return null;
+      const a = ethers.getAddress(stableA);
+      const b = ethers.getAddress(stableB);
       attempts.push({ path: [tokenIn, a, b], stableOut: b });
       attempts.push({ path: [tokenIn, b, a], stableOut: a });
       attempts.push({ path: [tokenIn, wrapped, a, b], stableOut: b });
@@ -151,9 +154,11 @@ async function quoteTokenToStableUsd(
       if (ends.some((p, i) => i > 0 && p === ends[i - 1])) continue;
 
       try {
-        const amounts: bigint[] = await router.getAmountsOut(amountRaw, path);
+        const getAmountsOut = router.getAmountsOut;
+        if (!getAmountsOut) continue;
+        const amounts: bigint[] = await getAmountsOut(amountRaw, path);
         const out = amounts[amounts.length - 1];
-        if (out <= 0n) continue;
+        if (out === undefined || out <= 0n) continue;
 
         const stableInfo = await getTokenInfo(provider, stableOut);
         const usd = Number(ethers.formatUnits(out, stableInfo.decimals));

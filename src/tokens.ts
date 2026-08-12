@@ -18,10 +18,16 @@ export async function getTokenInfo(
 ): Promise<TokenInfo> {
   const checksummed = ethers.getAddress(address);
   const contract = new ethers.Contract(checksummed, ERC20_ABI, provider);
+  const nameFn = contract.name;
+  const symbolFn = contract.symbol;
+  const decimalsFn = contract.decimals;
+  if (!nameFn || !symbolFn || !decimalsFn) {
+    throw new Error("ERC20 metadata methods unavailable");
+  }
   const [name, symbol, decimals] = await Promise.all([
-    contract.name(),
-    contract.symbol(),
-    contract.decimals(),
+    nameFn(),
+    symbolFn(),
+    decimalsFn(),
   ]);
   return {
     address: checksummed,
@@ -54,7 +60,9 @@ export async function getTokenBalance(
   const checksummedToken = ethers.getAddress(tokenAddress);
   const checksummedOwner = ethers.getAddress(ownerAddress);
   const contract = new ethers.Contract(checksummedToken, ERC20_ABI, provider);
-  return await contract.balanceOf(checksummedOwner);
+  const balanceOf = contract.balanceOf;
+  if (!balanceOf) throw new Error("ERC20 balanceOf method unavailable");
+  return await balanceOf(checksummedOwner);
 }
 
 /**
@@ -70,7 +78,9 @@ export async function getAllowance(
   const checksummedOwner = ethers.getAddress(owner);
   const checksummedSpender = ethers.getAddress(spender);
   const contract = new ethers.Contract(checksummedToken, ERC20_ABI, provider);
-  return await contract.allowance(checksummedOwner, checksummedSpender);
+  const allowance = contract.allowance;
+  if (!allowance) throw new Error("ERC20 allowance method unavailable");
+  return await allowance(checksummedOwner, checksummedSpender);
 }
 
 /**
@@ -86,7 +96,9 @@ export async function approveToken(
   const checksummedToken = ethers.getAddress(tokenAddress);
   const checksummedSpender = ethers.getAddress(spender);
   const contract = new ethers.Contract(checksummedToken, ERC20_ABI, wallet);
-  const tx = await contract.approve(checksummedSpender, amount);
+  const approve = contract.approve;
+  if (!approve) throw new Error("ERC20 approve method unavailable");
+  const tx = await approve(checksummedSpender, amount);
   const receipt = await tx.wait();
   return receipt?.hash ?? tx.hash;
 }
@@ -104,7 +116,9 @@ export async function transferToken(
   const checksummedToken = ethers.getAddress(tokenAddress);
   const checksummedTo = ethers.getAddress(to);
   const contract = new ethers.Contract(checksummedToken, ERC20_ABI, wallet);
-  const tx = await contract.transfer(checksummedTo, amount);
+  const transfer = contract.transfer;
+  if (!transfer) throw new Error("ERC20 transfer method unavailable");
+  const tx = await transfer(checksummedTo, amount);
   const receipt = await tx.wait();
   return receipt?.hash ?? tx.hash;
 }

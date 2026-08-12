@@ -33,8 +33,12 @@ export async function getQuote(
   const router = new ethers.Contract(routerAddr, DEX_ROUTER_ABI, provider);
   const path = buildPath(chain, tokenIn, tokenOut);
 
-  const amounts: bigint[] = await router.getAmountsOut(amountIn, path);
-  return amounts[amounts.length - 1];
+  const getAmountsOut = router.getAmountsOut;
+  if (!getAmountsOut) throw new Error("Router getAmountsOut method unavailable");
+  const amounts: bigint[] = await getAmountsOut(amountIn, path);
+  const out = amounts[amounts.length - 1];
+  if (out === undefined) throw new Error("Empty amounts from getAmountsOut");
+  return out;
 }
 
 /**
@@ -86,7 +90,11 @@ export async function executeSwap(
 
   if (isNativeIn) {
     // Native → Token: swapExactETHForTokens (payable)
-    tx = await router.swapExactETHForTokens(
+    const swapExactETHForTokens = router.swapExactETHForTokens;
+    if (!swapExactETHForTokens) {
+      throw new Error("Router swapExactETHForTokens method unavailable");
+    }
+    tx = await swapExactETHForTokens(
       minAmountOut,
       path,
       recipient,
@@ -107,7 +115,11 @@ export async function executeSwap(
 
     if (isNativeOut) {
       // Token → Native: swapExactTokensForETH
-      tx = await router.swapExactTokensForETH(
+      const swapExactTokensForETH = router.swapExactTokensForETH;
+      if (!swapExactTokensForETH) {
+        throw new Error("Router swapExactTokensForETH method unavailable");
+      }
+      tx = await swapExactTokensForETH(
         BigInt(request.amountIn),
         minAmountOut,
         path,
@@ -116,7 +128,11 @@ export async function executeSwap(
       );
     } else {
       // Token → Token: swapExactTokensForTokens
-      tx = await router.swapExactTokensForTokens(
+      const swapExactTokensForTokens = router.swapExactTokensForTokens;
+      if (!swapExactTokensForTokens) {
+        throw new Error("Router swapExactTokensForTokens method unavailable");
+      }
+      tx = await swapExactTokensForTokens(
         BigInt(request.amountIn),
         minAmountOut,
         path,
@@ -150,7 +166,9 @@ export async function checkAllowanceAndApprove(
   const owner = wallet.address;
 
   const contract = new ethers.Contract(checksummedToken, ERC20_ABI, provider);
-  const currentAllowance: bigint = await contract.allowance(
+  const allowanceFn = contract.allowance;
+  if (!allowanceFn) throw new Error("ERC20 allowance method unavailable");
+  const currentAllowance: bigint = await allowanceFn(
     owner,
     checksummedSpender
   );
@@ -165,7 +183,9 @@ export async function checkAllowanceAndApprove(
     ERC20_ABI,
     wallet
   );
-  const tx = await signerContract.approve(checksummedSpender, amount);
+  const approve = signerContract.approve;
+  if (!approve) throw new Error("ERC20 approve method unavailable");
+  const tx = await approve(checksummedSpender, amount);
   const receipt = await tx.wait();
   return receipt?.hash ?? tx.hash;
 }
