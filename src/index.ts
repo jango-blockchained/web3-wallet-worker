@@ -51,6 +51,7 @@ import {
   createLogger,
   withRequestLog,
   createInternalAuthMiddleware,
+  safeWaitUntil,
 } from "@hoox-sh/hoox-shared/middleware";
 import { trackAnalytics } from "@hoox-sh/hoox-shared/analytics";
 import type { AnalyticsEnv } from "@hoox-sh/hoox-shared/analytics";
@@ -256,15 +257,15 @@ function trackApiCall(
   route: string,
   status: number
 ) {
-  ctx.waitUntil(
+  safeWaitUntil(
+    ctx,
     trackAnalytics(env, "/track/api-call", {
       worker: "web3-wallet-worker",
       endpoint: route,
       latencyMs: 0,
       success: status < 500,
-    }).catch((err) =>
-      logger.error("trackAnalytics failed", { error: String(err) })
-    )
+    }),
+    (err) => logger.error("trackAnalytics failed", { error: String(err) })
   );
 }
 
@@ -429,24 +430,24 @@ router.get(
       const { wallet, source } = walletResult;
       logger.info("Wallet address resolved", { address: wallet.address });
 
-      ctx.waitUntil(
+      safeWaitUntil(
+        ctx,
         trackAnalytics(env, "/track/api-call", {
           worker: "web3-wallet-worker",
           endpoint: "/",
           latencyMs: 0,
           success: true,
-        }).catch((err) =>
-          logger.error("trackAnalytics failed", { error: String(err) })
-        )
+        }),
+        (err) => logger.error("trackAnalytics failed", { error: String(err) })
       );
-      ctx.waitUntil(
+      safeWaitUntil(
+        ctx,
         sendNotification(
           wallet,
           env,
           `Web3 Wallet Worker initialized. Address: ${wallet.address} (${source})`
-        ).catch((err) =>
-          logger.error("sendNotification failed", { error: String(err) })
-        )
+        ),
+        (err) => logger.error("sendNotification failed", { error: String(err) })
       );
 
       return createJsonResponse(
@@ -1049,14 +1050,14 @@ router.post(
       };
       await storeTransaction(env.TRANSACTIONS_DB, record);
 
-      ctx.waitUntil(
+      safeWaitUntil(
+        ctx,
         sendNotification(
           wallet,
           env,
           `Swap executed: ${body.amountIn} → ${txHash.slice(0, 10)}...`
-        ).catch((err) =>
-          logger.error("sendNotification failed", { error: String(err) })
-        )
+        ),
+        (err) => logger.error("sendNotification failed", { error: String(err) })
       );
 
       trackApiCall(env, ctx, "/swap", 200);
