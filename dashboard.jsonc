@@ -1,56 +1,29 @@
 {
   "display_name": "Web3 Wallet",
-  "description": "On-chain DEX trading and wallet management",
+  "description": "Runtime config is a single wallet:config JSON document (not flat wallet:* keys). Private keys are secrets.",
   "sections": {
     "wallet": {
-      "title": "Wallet Settings",
-      "description": "Configure Web3 wallet connections",
+      "title": "Wallet Config",
+      "description": "Stored as wallet:config — shape: { enabled, defaultChain, dex, security }",
       "icon": "wallet",
       "priority": 10,
       "fields": {
-        "enabled": false,
-        "default_chain": "ethereum",
-        "private_key_binding": "WEB3_PRIVATE_KEY",
-      },
-      "options": {
-        "default_chain": ["ethereum", "bsc", "polygon", "arbitrum", "optimism"],
+        "config": "{ \"enabled\": true, \"defaultChain\": \"ethereum\", \"dex\": { \"slippageTolerance\": 0.5, \"gasMultiplier\": 1.2, \"maxApprovalAmount\": \"1000000\" }, \"security\": { \"maxTransactionValueUsd\": 10000, \"requireConfirmation\": true, \"whitelistedContractsOnly\": true } }",
+        "private_key": "Requires CLI Setup",
+        "mnemonic": "Requires CLI Setup",
       },
       "descriptions": {
-        "enabled": "Enable or disable Web3 wallet operations.",
-        "default_chain": "Default blockchain network for DEX trades.",
-        "private_key_binding": "Cloudflare secret binding for the wallet private key.",
+        "config": "Full WalletConfig JSON (wallet:config). Matches web3-wallet-worker getConfig() schema.",
+        "private_key": "WALLET_PK_SECRET / WEB3 private key binding.",
+        "mnemonic": "WALLET_MNEMONIC_SECRET.",
       },
-    },
-    "dex": {
-      "title": "DEX Configuration",
-      "description": "Decentralized exchange settings",
-      "icon": "sparkles",
-      "priority": 20,
-      "fields": {
-        "slippage_tolerance": 0.5,
-        "gas_multiplier": 1.2,
-        "max_approval_amount": 1000000,
+      "secrets": {
+        "private_key": true,
+        "mnemonic": true,
       },
-      "descriptions": {
-        "slippage_tolerance": "Maximum slippage percentage for DEX trades (0.5 = 0.5%).",
-        "gas_multiplier": "Multiplier for gas price to ensure fast execution.",
-        "max_approval_amount": "Maximum token approval amount in wei.",
-      },
-    },
-    "wallet_security": {
-      "title": "Security",
-      "description": "Web3 security settings",
-      "icon": "shield",
-      "priority": 30,
-      "fields": {
-        "max_transaction_value_usd": 10000,
-        "require_confirmation": true,
-        "whitelisted_contracts_only": true,
-      },
-      "descriptions": {
-        "max_transaction_value_usd": "Maximum single transaction value in USD.",
-        "require_confirmation": "Require manual confirmation for transactions above threshold.",
-        "whitelisted_contracts_only": "Only interact with pre-approved smart contracts.",
+      "secret_commands": {
+        "private_key": "hoox secrets set web3-wallet-worker WALLET_PK_SECRET",
+        "mnemonic": "hoox secrets set web3-wallet-worker WALLET_MNEMONIC_SECRET",
       },
     },
   },
