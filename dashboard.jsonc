@@ -37,7 +37,7 @@
         "max_approval_amount": "Maximum token approval amount in wei.",
       },
     },
-    "security": {
+    "wallet_security": {
       "title": "Security",
       "description": "Web3 security settings",
       "icon": "shield",
